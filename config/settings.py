@@ -125,5 +125,6 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# login setting 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
