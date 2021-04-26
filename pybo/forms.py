@@ -1,5 +1,5 @@
 from django import forms
-from pybo.models import Question,Answer
+from pybo.models import Question,Answer,Comment
 
 # 이 같은 클래스를 장고 폼이라 한다.
 # form 에는 2개의 폼이 존재한다. forms.Form을 상속받으면 '폼' / forms.ModelForm '모델 폼' 모델 폼은 말 그대로 모델과 연결된 폼이며, 
@@ -22,3 +22,12 @@ class AnswerForm(forms.ModelForm):
         labels = {
             'content': '답변내용',
         }
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ['content']
+        labels = {
+            'content': '댓글내용',
+        }
+
