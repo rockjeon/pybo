@@ -6,24 +6,48 @@ from .forms import QuestionForm, AnswerForm, CommentForm
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Q, Count
 
 def index(request):
-    """
-    pybo 목록 출력
+    page = request.GET.get('page', '1')  # 페이지
+    kw = request.GET.get('kw', '')  # 검색어
+    so = request.GET.get('so', 'recent')  # 정렬기준
+    # 정렬
+    if so == 'recommend':
+        question_list = Question.objects.annotate(num_voter=Count('voter')).order_by('-num_voter', '-create_date')
+    elif so == 'popular':
+        question_list = Question.objects.annotate(num_answer=Count('answer')).order_by('-num_answer', '-create_date')
+    else:  # recent
+        question_list = Question.objects.order_by('-create_date')
     
-    """
-    # 입력 파라미터
-    page = request.GET.get('page','1') # GET 방식 요청 URL에서 page 값을 가져올때
-    question_list = Question.objects.order_by('-create_date') # - 붙히면 역순으로 정렬됨
+    
+    # 조회
+    question_list = Question.objects.order_by('-create_date')
+    if kw:
+        question_list = question_list.filter(
+            Q(subject__icontains=kw) |  # 제목검색
+            Q(content__icontains=kw) |  # 내용검색
+            Q(author__username__icontains=kw) |  # 질문 글쓴이검색
+            Q(answer__author__username__icontains=kw)  # 답변 글쓴이검색
+        ).distinct()
+    # 페이징처리
     paginator = Paginator(question_list, 10)  # 페이지당 10개씩 보여주기
     page_obj = paginator.get_page(page)
-    # context 사전형 객체를 세전째 선택적(optional) 인수로 받습니다. 
-    # 인수로 지정된 context로 표현된 템플릿의 HttpResponse 객체가 반환됩니다.
-    # 즉 view 에서 사용하던 파이썬 변수를 html 템플릿으로 넘길 수 있습니다. 
-    # context 는 딕셔너리형으로 사용하며 key 값이 탬플릿에서 사용할 변수이름, value 값이 파이썬 변수가 됩니다.
-    context = {'question_list': page_obj}
+    context = {'question_list': page_obj, 'page': page, 'kw': kw, 'so': so}  # page와 kw가 추가되었다.
+    return render(request, 'pybo/question_list.html', context)
+    
+    # # 입력 파라미터
+    # page = request.GET.get('page','1') # GET 방식 요청 URL에서 page 값을 가져올때
+    # question_list = Question.objects.order_by('-create_date') # - 붙히면 역순으로 정렬됨
+    # paginator = Paginator(question_list, 10)  # 페이지당 10개씩 보여주기
+    # page_obj = paginator.get_page(page)
+    # # context 사전형 객체를 세전째 선택적(optional) 인수로 받습니다. 
+    # # 인수로 지정된 context로 표현된 템플릿의 HttpResponse 객체가 반환됩니다.
+    # # 즉 view 에서 사용하던 파이썬 변수를 html 템플릿으로 넘길 수 있습니다. 
+    # # context 는 딕셔너리형으로 사용하며 key 값이 탬플릿에서 사용할 변수이름, value 값이 파이썬 변수가 됩니다.
+    # context = {'question_list': page_obj}
 
-    return render(request, 'pybo/question_list.html',context)
+    # return render(request, 'pybo/question_list.html',context)
 
 def detail(request, question_id):
     question = get_object_or_404(Question, pk=question_id)
@@ -248,3 +272,27 @@ def comment_delete_answer(request, comment_id):
     else:
         comment.delete()
     return redirect('pybo:detail', question_id=comment.answer.question.id)
+
+@login_required(login_url='common:login')
+def vote_question(request, question_id):
+    """
+    pybo 질문추천등록
+    """
+    question = get_object_or_404(Question, pk=question_id)
+    if request.user == question.author:
+        messages.error(request, '본인이 작성한 글은 추천할수 없습니다')
+    else:
+        question.voter.add(request.user)
+    return redirect('pybo:detail', question_id=question.id)
+
+@login_required(login_url='common:login')
+def vote_answer(request, answer_id):
+    """
+    pybo 답글추천등록
+    """
+    answer = get_object_or_404(Answer, pk=answer_id)
+    if request.user == answer.author:
+        messages.error(request, '본인이 작성한 글은 추천할수 없습니다')
+    else:
+        answer.voter.add(request.user)
+    return redirect('pybo:detail', question_id=answer.question.id)
