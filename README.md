@@ -13,3 +13,6 @@
 아나콘다로 가상환경을 구성했다.
 
 * python : 3.6.13
+* django : 3.2
+* bootstrap : v4
+* jquery : v3.6
